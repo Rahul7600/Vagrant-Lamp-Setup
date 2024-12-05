@@ -1,0 +1,62 @@
+---
+- hosts: all
+  become: true
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Update APT package index
+      apt:
+        update_cache: yes
+
+    - name: Install Apache
+      apt:
+        name: apache2
+        state: present
+
+    - name: Configure MySQL root password using debconf
+      debconf:
+        name: mysql-server
+        question: "mysql-server/root_password"
+        value: "{{ mysql_root_password }}"
+        vtype: "string"
+
+    - name: Configure MySQL root password confirmation using debconf
+      debconf:
+        name: mysql-server
+        question: "mysql-server/root_password_again"
+        value: "{{ mysql_root_password }}"
+        vtype: "string"
+
+    - name: Install MySQL
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Install PHP and required extensions
+      apt:
+        name: "{{ php_packages }}"
+        state: present
+
+    - name: Configure Apache to support PHP
+      lineinfile:
+        path: /etc/apache2/apache2.conf
+        line: "ServerName localhost"
+      notify: restart apache
+
+    - name: Deploy a sample PHP application
+      copy:
+        content: "<?php phpinfo(); ?>"
+        dest: /var/www/html/index.php
+
+  handlers:
+    - name: restart apache
+      service:
+        name: apache2
+        state: restarted
+
+    - name: restart mysql
+      service:
+        name: mysql
+        state: restarted
+
